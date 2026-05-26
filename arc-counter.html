@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arc Counter — Live on Arc Testnet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #05050f;
+      --surface: #0d0d1f;
+      --border: rgba(255,255,255,0.07);
+      --accent: #00ffe1;
+      --accent2: #7b61ff;
+      --text: #f0f0f0;
+      --muted: rgba(255,255,255,0.35);
+      --error: #ff4f7b;
+      --success: #00ffe1;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,225,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,225,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px;
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+      box-shadow: 0 0 80px rgba(0,255,225,0.05), 0 0 0 1px rgba(0,255,225,0.05);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 12px;
+      margin-bottom: 28px;
+    }
+
+    .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.6rem, 5vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      margin-bottom: 40px;
+    }
+
+    /* Counter display */
+    .counter-wrap {
+      position: relative;
+      margin: 0 auto 40px;
+      width: 160px; height: 160px;
+    }
+
+    .counter-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(0,255,225,0.15);
+      animation: spin 12s linear infinite;
+    }
+
+    .counter-ring::before {
+      content: '';
+      position: absolute;
+      top: -3px; left: 50%;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      transform: translateX(-50%);
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .counter-inner {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .counter-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      transition: transform 0.2s, opacity 0.2s;
+      text-shadow: 0 0 30px rgba(0,255,225,0.4);
+    }
+
+    .counter-value.bump {
+      transform: scale(1.2);
+      opacity: 0.7;
+    }
+
+    .counter-label {
+      font-size: 0.55rem;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Buttons */
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 14px 24px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .btn-connect {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .btn-connect:hover { background: #fff; border-color: #fff; }
+
+    .btn-increment {
+      background: transparent;
+      color: var(--accent);
+      border-color: rgba(0,255,225,0.3);
+    }
+    .btn-increment:hover { background: rgba(0,255,225,0.08); border-color: var(--accent); }
+    .btn-increment:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn-refresh {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+      font-size: 0.65rem;
+    }
+    .btn-refresh:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* Status */
+    .status {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      min-height: 20px;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .status.ok { color: var(--success); }
+    .status.err { color: var(--error); }
+    .status.loading { color: var(--accent2); }
+
+    /* Info */
+    .info {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+    }
+
+    .info-key { color: var(--muted); text-transform: uppercase; }
+    .info-val {
+      color: var(--text);
+      font-size: 0.58rem;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .info-val a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .info-val a:hover { text-decoration: underline; }
+
+    /* Tx log */
+    .tx-log {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      text-align: left;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .tx-log::-webkit-scrollbar { width: 4px; }
+    .tx-log::-webkit-scrollbar-thumb { background: #222; }
+
+    .tx-item {
+      font-size: 0.58rem;
+      color: var(--muted);
+      padding: 3px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .tx-item a { color: var(--accent); text-decoration: none; }
+    .tx-item a:hover { text-decoration: underline; }
+
+    .spinner {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid rgba(0,255,225,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: rotate 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="badge">
+    <div class="badge-dot"></div>
+    Arc Testnet · Chain 5042002
+  </div>
+
+  <h1>On-Chain Counter</h1>
+  <div class="subtitle">Live smart contract · Deployed on Arc</div>
+
+  <div class="counter-wrap">
+    <div class="counter-ring"></div>
+    <div class="counter-inner">
+      <div class="counter-value" id="counter-val">—</div>
+      <div class="counter-label">count</div>
+    </div>
+  </div>
+
+  <div class="status" id="status">Connect your wallet to begin</div>
+
+  <div class="btn-group">
+    <button class="btn btn-connect" id="btn-connect">Connect Wallet</button>
+    <button class="btn btn-increment" id="btn-increment" disabled>+ Increment Counter</button>
+    <button class="btn btn-refresh" id="btn-refresh">↻ Refresh Count</button>
+  </div>
+
+  <div class="info">
+    <div class="info-row">
+      <span class="info-key">Contract</span>
+      <span class="info-val">
+        <a href="https://testnet.arcscan.app/address/0x7acb1c9E4b2C46062E3f05821D69Dccfa7A36836" target="_blank">
+          0x7acb...6836
+        </a>
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Network</span>
+      <span class="info-val">Arc Testnet</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Wallet</span>
+      <span class="info-val" id="wallet-display">Not connected</span>
+    </div>
+  </div>
+
+  <div class="tx-log" id="tx-log" style="display:none">
+  </div>
+</div>
+
+<script>
+  const CONTRACT_ADDRESS = '0x7acb1c9E4b2C46062E3f05821D69Dccfa7A36836';
+  const ABI = [
+    "function number() view returns (uint256)",
+    "function increment() public",
+    "function setNumber(uint256 newNumber) public"
+  ];
+  const RPC_URL = 'https://rpc.testnet.arc.network';
+  const EXPLORER = 'https://testnet.arcscan.app';
+
+  const $ = id => document.getElementById(id);
+  const statusEl   = $('status');
+  const counterEl  = $('counter-val');
+  const btnConnect = $('btn-connect');
+  const btnInc     = $('btn-increment');
+  const btnRefresh = $('btn-refresh');
+  const walletEl   = $('wallet-display');
+  const txLog      = $('tx-log');
+
+  let provider, signer, contract, readContract;
+
+  function setStatus(msg, type = '') {
+    statusEl.textContent = msg;
+    statusEl.className = 'status ' + type;
+  }
+
+  function shortAddr(addr) {
+    return addr.slice(0, 6) + '...' + addr.slice(-4);
+  }
+
+  function addTx(hash) {
+    txLog.style.display = 'block';
+    const item = document.createElement('div');
+    item.className = 'tx-item';
+    item.innerHTML = `
+      <span>✓ Incremented</span>
+      <a href="${EXPLORER}/tx/${hash}" target="_blank">${hash.slice(0,10)}...↗</a>
+    `;
+    txLog.prepend(item);
+  }
+
+  async function readCount() {
+    try {
+      const rp = new ethers.JsonRpcProvider(RPC_URL);
+      const rc = new ethers.Contract(CONTRACT_ADDRESS, ABI, rp);
+      const n = await rc.number();
+      counterEl.textContent = n.toString();
+      counterEl.classList.add('bump');
+      setTimeout(() => counterEl.classList.remove('bump'), 300);
+    } catch(e) {
+      counterEl.textContent = '?';
+    }
+  }
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      setStatus('No wallet detected. Install MetaMask or Rabby.', 'err');
+      return;
+    }
+    try {
+      setStatus('Connecting wallet...', 'loading');
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+
+      // Switch to Arc Testnet
+      try {
+        await provider.send('wallet_switchEthereumChain', [{ chainId: '0x4CDCD2' }]);
+      } catch(sw) {
+        if (sw.code === 4902) {
+          await provider.send('wallet_addEthereumChain', [{
+            chainId: '0x4CDCD2',
+            chainName: 'Arc Testnet',
+            rpcUrls: [RPC_URL],
+            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+            blockExplorerUrls: [EXPLORER]
+          }]);
+        }
+      }
+
+      signer = await provider.getSigner();
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+      const addr = await signer.getAddress();
+      walletEl.textContent = shortAddr(addr);
+      btnConnect.textContent = '✓ Connected';
+      btnConnect.style.background = 'rgba(0,255,225,0.1)';
+      btnConnect.style.color = 'var(--accent)';
+      btnConnect.style.borderColor = 'rgba(0,255,225,0.3)';
+      btnInc.disabled = false;
+      setStatus('Wallet connected. Ready to transact.', 'ok');
+      await readCount();
+    } catch(e) {
+      setStatus('Connection failed: ' + (e.message || e), 'err');
+    }
+  }
+
+  async function increment() {
+    if (!contract) return;
+    try {
+      btnInc.disabled = true;
+      btnInc.innerHTML = '<span class="spinner"></span>Sending transaction...';
+      setStatus('Waiting for wallet confirmation...', 'loading');
+
+      const tx = await contract.increment();
+      setStatus('Transaction sent! Waiting for confirmation...', 'loading');
+      btnInc.innerHTML = '<span class="spinner"></span>Confirming...';
+
+      await tx.wait();
+      addTx(tx.hash);
+      setStatus('✓ Counter incremented on-chain!', 'ok');
+      await readCount();
+    } catch(e) {
+      if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
+        setStatus('Transaction rejected.', 'err');
+      } else {
+        setStatus('Error: ' + (e.shortMessage || e.message || 'Unknown error'), 'err');
+      }
+    } finally {
+      btnInc.disabled = false;
+      btnInc.textContent = '+ Increment Counter';
+    }
+  }
+
+  btnConnect.addEventListener('click', connectWallet);
+  btnInc.addEventListener('click', increment);
+  btnRefresh.addEventListener('click', readCount);
+
+  // Init — read count on load
+  readCount();
+</script>
+</body>
+</html>
