@@ -25,13 +25,11 @@ USDC
 Explorer
 testnet.arcscan.app
 Run Locally
-No setup needed:
 Bash
-You'll need a browser wallet (MetaMask or Rabby) and testnet USDC from faucet.circle.com to send transactions.
 Built With
 Vanilla HTML, CSS, JavaScript
-ethers.js v6 — wallet connection and contract interaction
-Remix IDE — contract deployment
-Arc Testnet — EVM-compatible L1 with USDC as gas token
+ethers.js v6
+Remix IDE
+Arc Testnet
 Google Fonts — Space Mono + Syne
-Made by @mfbololadeyy
+Made by @bigvishh
